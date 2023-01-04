@@ -13,7 +13,7 @@ pub struct Contract {
     pub owner_id: AccountId,
     pub last_total_balance: Balance,
     pub last_block_height: BlockHeight,
-    pub last_withdraw:  BlockHeight,
+    pub last_withdraw: BlockHeight,
     pub last_unstake: BlockHeight,
     pub num_blocks_to_withdraw: BlockHeight,
     pub num_blocks_to_unstake: BlockHeight,
@@ -26,7 +26,7 @@ impl Default for Contract {
             owner_id: env::predecessor_account_id(),
             last_block_height: env::block_height(),
             last_total_balance: env::account_balance(),
-            last_withdraw:  last_height,
+            last_withdraw: last_height,
             last_unstake: last_height,
             num_blocks_to_withdraw: 60,
             num_blocks_to_unstake: 60,
@@ -44,7 +44,7 @@ impl Contract {
             owner_id,
             last_block_height: env::block_height(),
             last_total_balance: env::account_balance(),
-            last_withdraw:  last_height,
+            last_withdraw: last_height,
             last_unstake: last_height,
             num_blocks_to_withdraw: 60,
             num_blocks_to_unstake: 60,
@@ -69,7 +69,6 @@ impl Contract {
         ));
     }
 
-
     /// Stakes the given amount from the inner account of the predecessor.
     /// The inner account should have enough unstaked balance.
     pub fn stake(&mut self, amount: U128) {
@@ -90,16 +89,21 @@ impl Contract {
     pub fn unstake(&mut self, amount: U128) {
         self.internal_ping();
         let amount: Balance = amount.into();
+        let account_id = env::predecessor_account_id();
         assert!(
             self.last_total_balance > 0,
             "The contract doesn't have staked balance"
         );
         assert!(amount > 0, "Unstaking amount should be positive");
         assert!(
-            self.last_unstake + self.num_blocks_to_unstake <  self.last_block_height,
+            self.last_unstake + self.num_blocks_to_unstake < self.last_block_height,
             "The unstaked balance is not yet available due to unstaking delay"
-
         );
+
+        env::log_str(&format!(
+            "@{} unstaked {}. New balance is {}",
+            account_id, amount, self.last_total_balance
+        ));
         self.last_unstake = env::block_height();
     }
 
@@ -115,12 +119,16 @@ impl Contract {
         );
         assert!(amount > 0, "Unstaking amount should be positive");
         assert!(
-            self.last_withdraw + self.num_blocks_to_withdraw <  self.last_block_height,
+            self.last_withdraw + self.num_blocks_to_withdraw < self.last_block_height,
             "The withdraw balance is not yet available due to withdraw delay"
         );
         self.last_withdraw = env::block_height();
         self.last_total_balance -= amount;
-        Promise::new(account_id).transfer(amount);
+        Promise::new(account_id.clone()).transfer(amount);
+        env::log_str(&format!(
+            "@{} withdrawed {}. New balance is {}",
+            account_id, amount, self.last_total_balance
+        ));
     }
     /// UTILS
     /// Asserts that the method was called by the owner.
@@ -137,6 +145,12 @@ impl Contract {
         self.owner_id.clone()
     }
 
+    /// Returns last total balance.
+    pub fn get_balance(&self) -> Balance {
+        self.last_total_balance
+    }
+
+    /// Set delay block number for unstake and withdraw
     pub fn set_settings(&mut self, num_unstake: u64, num_withdaw: u64) {
         self.assert_owner();
         self.num_blocks_to_unstake = num_unstake;
