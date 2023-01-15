@@ -122,13 +122,13 @@ impl Contract {
             self.last_withdraw + self.num_blocks_to_withdraw < self.last_block_height,
             "The withdraw balance is not yet available due to withdraw delay"
         );
-        self.last_withdraw = env::block_height();
         self.last_total_balance -= amount;
         Promise::new(account_id.clone()).transfer(amount);
         env::log_str(&format!(
             "@{} withdrawed {}. New balance is {}",
             account_id, amount, self.last_total_balance
         ));
+        self.last_withdraw = env::block_height();
     }
     /// UTILS
     /// Asserts that the method was called by the owner.
